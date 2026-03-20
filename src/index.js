@@ -32,6 +32,9 @@ const domain_mappings = Object.fromEntries(
 //const redirect_paths = ['/', '/login', '/signup', '/copilot', '/search/custom_scopes', '/session'];
 const redirect_paths = [];
 
+// 中国大陆以外的地区重定向到原始GitHub域名
+const enable_geo_redirect = true;
+
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
 });
@@ -42,6 +45,37 @@ async function handleRequest(request) {
   const current_host = url.host.toLowerCase();
   const host_header = request.headers.get('Host');
   const effective_host = (host_header || current_host).toLowerCase();
+  
+  // 检查是否需要重定向到原始GitHub（非中国用户）
+  if (enable_geo_redirect) {
+    const country = request.headers.get('CF-IPCountry') || '';
+    // 调试：打印国家信息
+    // console.log('Country:', country);
+    if (country && country !== 'CN') {
+      // 提取原始GitHub域名
+      const host_prefix = getProxyPrefix(effective_host);
+      if (host_prefix) {
+        let target_host = null;
+        if (host_prefix && host_prefix.endsWith('-gh.')) {
+          const prefix_part = host_prefix.slice(0, -4);
+          for (const original of Object.keys(domain_mappings)) {
+            const normalized_original = original.trim().toLowerCase();
+            if (normalized_original.replace(/\./g, '-') === prefix_part) {
+              target_host = original;
+              break;
+            }
+          }
+        }
+        if (target_host) {
+          const domain_suffix = effective_host.substring(host_prefix.length);
+          const original_url = new URL(request.url);
+          original_url.host = target_host;
+          original_url.protocol = 'https:';
+          return Response.redirect(original_url.href, 302);
+        }
+      }
+    }
+  }
   
   // 检查特殊路径，返回正常错误
   if (redirect_paths.includes(url.pathname)) {

@@ -30,6 +30,9 @@ const domain_mappings = Object.fromEntries(
 // 需要重定向的路径（屏蔽海外后可以不填写）
 const redirect_paths = [];
 
+// 中国大陆以外的地区重定向到原始GitHub域名
+const enable_geo_redirect = true;
+
 export default {
   async fetch(request, env, ctx) {
     return handleRequest(request);
@@ -42,6 +45,34 @@ async function handleRequest(request) {
   const current_host = url.host.toLowerCase();
   const host_header = request.headers.get('Host');
   const effective_host = (host_header || current_host).toLowerCase();
+  
+  // 检查是否需要重定向到原始GitHub（非中国用户）
+  if (enable_geo_redirect) {
+    const country = request.headers.get('CF-IPCountry') || '';
+    if (country && country !== 'CN') {
+      const host_prefix = getProxyPrefix(effective_host);
+      if (host_prefix) {
+        let target_host = null;
+        if (host_prefix && host_prefix.endsWith('-gh.')) {
+          const prefix_part = host_prefix.slice(0, -4);
+          for (const original of Object.keys(domain_mappings)) {
+            const normalized_original = original.trim().toLowerCase();
+            if (normalized_original.replace(/\./g, '-') === prefix_part) {
+              target_host = original;
+              break;
+            }
+          }
+        }
+        if (target_host) {
+          const domain_suffix = effective_host.substring(host_prefix.length);
+          const original_url = new URL(request.url);
+          original_url.host = target_host;
+          original_url.protocol = 'https:';
+          return Response.redirect(original_url.href, 302);
+        }
+      }
+    }
+  }
   
   // 检查特殊路径，返回正常错误
   if (redirect_paths.includes(url.pathname)) {
@@ -149,6 +180,18 @@ async function handleRequest(request) {
       
       let text = await response.text();
       text = await modifyText(text, host_prefix, effective_host);
+      
+      // 注入统计脚本
+      if (content_type.includes('text/html')) {
+        const inject_script = '<script defer src="https://u.2x.nz/script.js" data-website-id="e20f6781-b518-4bab-96be-35afe24cd0cf"></script>';
+        if (text.includes('</head>')) {
+          text = text.replace('</head>', `${inject_script}</head>`);
+        } else if (text.includes('</body>')) {
+          text = text.replace('</body>', `${inject_script}</body>`);
+        } else {
+          text = text + inject_script;
+        }
+      }
       
       return new Response(text, {
         status: response.status,
