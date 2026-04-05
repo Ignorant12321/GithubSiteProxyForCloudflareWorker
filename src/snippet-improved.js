@@ -89,7 +89,7 @@ async function handleRequest(request) {
       const input = url.searchParams.get('url') || '';
       const target = buildProxyUrl(input, proxy_base_host);
       if (!target) {
-        return jsonResponse({ ok: false, error: 'Invalid URL' }, 400);
+        return jsonResponse({ ok: false, error: 'Invalid URL' }, 200);
       }
       return jsonResponse({ ok: true, proxy_url: target });
     }
@@ -811,7 +811,7 @@ function renderHomePage(errorMessage = '', proxy_base_host = 'ssr.ddns-ip.net') 
       let raw = input.trim();
       if (!raw) return null;
 
-      if (!/^https?:\/\//i.test(raw)) {
+      if (!/^https?:\\/\\//i.test(raw)) {
         raw = 'https://' + raw;
       }
 
@@ -902,13 +902,20 @@ function renderHomePage(errorMessage = '', proxy_base_host = 'ssr.ddns-ip.net') 
     }
 
     async function openProxy() {
-      const target = await convertUrl();
-      if (target) {
-        const w = window.open(target, '_blank', 'noopener,noreferrer');
-        if (!w) {
-          location.href = target;
-        }
+      const popup = window.open('about:blank', '_blank');
+      if (!popup) {
+        showToast('浏览器拦截了新标签页');
+        return;
       }
+      try { popup.opener = null; } catch (e) {}
+
+      const target = await convertUrl();
+      if (!target) {
+        popup.close();
+        return;
+      }
+
+      popup.location.replace(target);
     }
 
     async function copyProxy() {

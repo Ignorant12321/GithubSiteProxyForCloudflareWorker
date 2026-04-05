@@ -456,10 +456,20 @@
     async function convertOnly() { await convertUrl(); }
 
     async function openProxy() {
+      const popup = window.open('about:blank', '_blank');
+      if (!popup) {
+        showToast('浏览器拦截了新标签页');
+        return;
+      }
+      try { popup.opener = null; } catch (e) {}
+
       const target = await convertUrl();
-      if (!target) return;
-      const w = window.open(target, '_blank', 'noopener,noreferrer');
-      if (!w) location.href = target;
+      if (!target) {
+        popup.close();
+        return;
+      }
+
+      popup.location.replace(target);
     }
 
     async function copyProxy() {
