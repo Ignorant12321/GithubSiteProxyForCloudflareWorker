@@ -3,7 +3,7 @@
 // =========================
 
 // 首页入口前缀
-// 例如 home-gh.ssr.ddns-ip.net
+// 例如 home-gh.<YOUR_DOMAIN>
 const HOME_PREFIX = 'home-gh.';
 
 // 域名白名单配置（仅保留需要的原生域名）
@@ -360,7 +360,7 @@ function modifyUrl(url_str, host_prefix, effective_hostname) {
 }
 
 // 首页 HTML
-function renderHomePage(errorMessage = '', proxy_base_host = 'ssr.ddns-ip.net') {
+function renderHomePage(errorMessage = '', proxy_base_host = '<YOUR_DOMAIN>') {
   const safeError = escapeHtml(errorMessage || '');
   const safeWhitelist = JSON.stringify(domain_whitelist);
 

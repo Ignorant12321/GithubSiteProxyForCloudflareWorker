@@ -7,6 +7,7 @@
 - `src/snippet-improved.js`：改进版，在基础版之上增加首页、白名单转换页和接口化转换能力
 
 这份 README 以 `src/snippet.js` 为基线，说明 `src/snippet-improved.js` 的改进点和对应使用方式。
+文中的域名、仓库名和路径均使用占位符表示，请按你的实际环境替换。
 
 ## 项目特点
 
@@ -66,7 +67,7 @@
 
 `src/snippet-improved.js` 在基础版上额外增加了：
 
-- `home-gh.<你的域名>` 首页入口
+- `home-gh.<YOUR_DOMAIN>` 首页入口
 - `/go?url=...` 直接跳转
 - `/api/convert?url=...` 返回 JSON 格式的代理链接
 - 首页里内置的白名单展示
@@ -81,8 +82,8 @@
 访问形式通常是：
 
 ```text
-https://github-com-gh.<你的域名>/owner/repo
-https://raw-githubusercontent-com-gh.<你的域名>/owner/repo/main/file.js
+https://github-com-gh.<YOUR_DOMAIN>/<OWNER>/<REPO>
+https://raw-githubusercontent-com-gh.<YOUR_DOMAIN>/<OWNER>/<REPO>/main/file.js
 ```
 
 ### 改进版首页
@@ -90,15 +91,15 @@ https://raw-githubusercontent-com-gh.<你的域名>/owner/repo/main/file.js
 访问：
 
 ```text
-https://home-gh.<你的域名>/
+https://home-gh.<YOUR_DOMAIN>/
 ```
 
 在输入框里填入原始链接，例如：
 
 ```text
-https://github.com/owner/repo
-https://raw.githubusercontent.com/owner/repo/main/file.js
-https://gist.githubusercontent.com/user/id/raw/file
+https://github.com/<OWNER>/<REPO>
+https://raw.githubusercontent.com/<OWNER>/<REPO>/main/file.js
+https://gist.githubusercontent.com/<USER>/<ID>/raw/<FILE>
 ```
 
 然后可以：
@@ -112,7 +113,7 @@ https://gist.githubusercontent.com/user/id/raw/file
 改进版提供：
 
 ```text
-/api/convert?url=https://github.com/owner/repo
+/api/convert?url=https://github.com/<OWNER>/<REPO>
 ```
 
 返回示例：
@@ -120,15 +121,15 @@ https://gist.githubusercontent.com/user/id/raw/file
 ```json
 {
   "ok": true,
-  "proxy_url": "https://github-com-gh.<你的域名>/owner/repo"
+  "proxy_url": "https://github-com-gh.<YOUR_DOMAIN>/<OWNER>/<REPO>"
 }
 ```
 
 ## 部署说明
 
-如果你部署的是基础版，把 Snippet入口指向 `src/snippet.js`。
+如果你部署的是基础版，把 Worker 入口指向 `src/snippet.js`。
 
-如果你部署的是改进版，把 Snippet入口指向 `src/snippet-improved.js`。
+如果你部署的是改进版，把 Worker 入口指向 `src/snippet-improved.js`。
 
 示例：
 
@@ -140,16 +141,16 @@ compatibility_date = "2024-04-06"
 
 建议配置的路由：
 
-- `home-gh.<你的域名>/*`
-- `*-gh.<你的域名>/*`
+- `home-gh.<YOUR_DOMAIN>/*`
+- `*-gh.<YOUR_DOMAIN>/*`
 
 ## 嵌套路径处理
 
 项目对以下路径做了特殊截断处理：
 
 ```text
-/owner/repo/latest-commit/main/https://...
-/owner/repo/tree-commit-info/main/https://...
+/<OWNER>/<REPO>/latest-commit/<BRANCH>/https://...
+/<OWNER>/<REPO>/tree-commit-info/<BRANCH>/https://...
 ```
 
 这样可以减少 GitHub 仓库页面中嵌套链接导致的异常跳转。

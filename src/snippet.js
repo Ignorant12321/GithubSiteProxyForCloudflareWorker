@@ -229,7 +229,7 @@ async function modifyText(text, host_prefix, effective_hostname) {
   for (const [original_domain, _] of Object.entries(domain_mappings)) {
     const escaped_domain = original_domain.replace(/\./g, '\\.');
     
-    // 统一为 [原生域名]-gh.072103.xyz
+    // 统一为 [原生域名]-gh.<YOUR_DOMAIN>
     const current_prefix = original_domain.replace(/\./g, '-') + '-gh.';
     const full_proxy_domain = `${current_prefix}${domain_suffix}`;
     
