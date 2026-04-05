@@ -1,128 +1,165 @@
-# GitHub代理服务
+# GitHubSiteProxyForCloudflareWorker
 
-## 项目概述
+这是一个基于 Cloudflare Workers 的 GitHub 代理项目。
+仓库里有两份主要实现：
 
-这是一个基于Cloudflare Workers的GitHub代理服务，允许通过替代域名访问GitHub资源，解决某些网络环境下GitHub访问受限的问题。代理服务通过域名映射和资源转发，提供无缝的GitHub浏览体验。
+- `src/snippet.js`：基础版
+- `src/snippet-improved.js`：改进版，在基础版之上增加首页、白名单转换页和接口化转换能力
 
-## 特性
+这份 README 以 `src/snippet.js` 为基线，说明 `src/snippet-improved.js` 的改进点和对应使用方式。
 
-- **子域名匹配系统**：使用 `gh.` 前缀作为GitHub主站的代理入口，支持任何域名后缀
-- **完整的资源映射**：支持GitHub相关的所有主要域名，包括API、静态资源、用户内容等
-- **内容替换**：自动替换响应中的所有域名引用，确保链接正常工作
-- **路径修复**：解决嵌套URL路径问题，特别针对仓库提交信息等特殊路径
-- **安全重定向**：对敏感路径（如登录页面）进行安全重定向
-- **HTTPS强制**：自动将HTTP请求升级为HTTPS
+## 项目特点
 
-## 支持的域名映射
+- 支持 GitHub 常见资源的域名映射和代理访问
+- 使用白名单限制可代理的原始域名
+- 自动把原始域名转换为 `*-gh.` 前缀的代理域名
+- 处理 GitHub 页面中的文本重写和重定向地址改写
+- 处理部分嵌套 URL 路径，减少仓库页面跳转异常
+- 改进版提供首页入口和 `/api/convert` 转换接口
 
-服务支持以下GitHub相关域名的代理访问：
+## 文件说明
 
-- github.com → gh.[您的域名]
-- avatars.githubusercontent.com → avatars-githubusercontent-com-gh.[您的域名]
-- github.githubassets.com → github-githubassets-com-gh.[您的域名]
-- api.github.com → api-github-com-gh.[您的域名]
-- raw.githubusercontent.com → raw-githubusercontent-com-gh.[您的域名]
-- 以及更多GitHub相关服务域名
+- `src/snippet.js`：基础代理实现
+- `src/snippet-improved.js`：改进版实现，包含 `HOME_PREFIX`、`/go` 和 `/api/convert`
+- `home.html`：改进版首页的静态页面参考
+- `wrangler.toml`：Cloudflare Workers 配置
 
-## 部署指南
+## 域名白名单
 
-### 前提条件
+基础版和改进版都使用同一组白名单：
 
-- Cloudflare账户
-- 已配置的域名（托管在Cloudflare上）
-- 基本的DNS配置知识
+- `github.com`
+- `avatars.githubusercontent.com`
+- `github.githubassets.com`
+- `collector.github.com`
+- `api.github.com`
+- `raw.githubusercontent.com`
+- `gist.githubusercontent.com`
+- `github.io`
+- `assets-cdn.github.com`
+- `cdn.jsdelivr.net`
+- `securitylab.github.com`
+- `www.githubstatus.com`
+- `npmjs.com`
+- `git-lfs.github.com`
+- `githubusercontent.com`
+- `github.global.ssl.fastly.net`
+- `api.npms.io`
+- `github.community`
+- `desktop.github.com`
+- `central.github.com`
 
-### 部署步骤
+如果输入的链接不在白名单中，转换会失败。
 
-1. **登录Cloudflare控制台**
-   - 进入Workers部分
+## 基础版行为
 
-2. **创建新的Worker**
-   - 点击"创建Worker"
-   - 将提供的代码粘贴到代码编辑器中
-   - 给Worker命名并保存
+`src/snippet.js` 会：
 
-3. **配置对应其他资源的域名映射**
-   - 更改域名映射配置，将所有相关域名指向您的Worker路由
-   - 将 `github.com` 指向您的Worker路由域名 `gh.您的域名`
-   - 将 `avatars.githubusercontent.com` 等其他资源指向您的Worker路由域名 `avatars-githubusercontent-com-gh.您的域名`
+1. 识别 `*-gh.` 形式的代理域名
+2. 根据前缀解析回原始 GitHub 域名
+3. 强制使用 HTTPS
+4. 将请求转发到源站
+5. 重写响应中的链接、重定向和部分文本内容
+6. 修复部分 `latest-commit` / `tree-commit-info` 之类的嵌套 URL 路径
 
-4. **配置DNS记录**
-   - 为您的泛域名添加任何命中CDN的记录
-   - 例如 `*.您的域名` A记录指向任何IP并开启代理
+## 改进版行为
 
-5. **配置Worker路由**
-   - 添加路由 `*-gh.您的域名/*` 和 `gh.您的域名/*` 指向您的Worker
+`src/snippet-improved.js` 在基础版上额外增加了：
 
-### 配置自定义域名
+- `home-gh.<你的域名>` 首页入口
+- `/go?url=...` 直接跳转
+- `/api/convert?url=...` 返回 JSON 格式的代理链接
+- 首页里内置的白名单展示
+- 本地输入后直接生成代理链接、复制链接、打开链接的交互
 
-如果您想使用不同的域名前缀（仅github.com主站），请修改代码中的`domain_mappings`对象，将默认的`gh.`等前缀替换为您喜欢的前缀。
+改进版的首页转换逻辑会优先使用本地白名单判断，在线运行时则调用 `/api/convert`。
 
 ## 使用方法
 
-部署成功后，只需将原始GitHub URL中的域名部分替换为对应的代理域名：
+### 基础版
 
-```
-# 原始URL
-https://github.com/用户名/仓库名
+访问形式通常是：
 
-# 代理URL
-https://gh.您的域名/用户名/仓库名
-```
-
-其他GitHub资源的访问方式类似，系统会自动处理域名映射和内容替换。
-
-## 技术说明
-
-### 工作原理
-
-1. 接收对代理域名的请求
-2. 识别目标GitHub域名
-3. 转发请求到GitHub服务器
-4. 接收GitHub的响应
-5. 替换响应内容中的域名引用
-6. 返回修改后的响应给用户
-
-### 特殊路径处理
-
-代码包含专门的逻辑来处理特殊路径，特别是用于仓库提交信息的路径，解决了嵌套URL问题：
-
-```
-/用户名/仓库名/latest-commit/分支名/https://gh.域名/...
+```text
+https://github-com-gh.<你的域名>/owner/repo
+https://raw-githubusercontent-com-gh.<你的域名>/owner/repo/main/file.js
 ```
 
-这类路径会被正确截断并转发到GitHub。
+### 改进版首页
 
-## 安全考虑
+访问：
 
-- 代理服务不存储或处理用户凭据
-- 敏感路径（如登录页面）会被重定向到其他网站
-- 所有流量都通过HTTPS加密
+```text
+https://home-gh.<你的域名>/
+```
 
-## 限制
+在输入框里填入原始链接，例如：
 
-- 不支持GitHub的登录和注册功能
-- 某些高级GitHub功能可能不完全兼容
-- 不能代替GitHub CLI或Git等工具的直接连接
+```text
+https://github.com/owner/repo
+https://raw.githubusercontent.com/owner/repo/main/file.js
+https://gist.githubusercontent.com/user/id/raw/file
+```
 
-## 故障排除
+然后可以：
 
-如果遇到问题：
+- 点击 `转换` 生成代理链接
+- 点击 `复制` 复制结果
+- 点击 `打开` 直接打开代理页
 
-1. 确认DNS记录配置正确
-2. 检查Worker是否正常运行
-3. 尝试清除浏览器缓存
-4. 检查请求和响应日志以获取详细错误信息
+### 改进版接口
 
-## 贡献指南
+改进版提供：
 
-欢迎提交Pull Request或Issue来改进此项目。特别欢迎以下方面的贡献：
+```text
+/api/convert?url=https://github.com/owner/repo
+```
 
-- 增加对更多GitHub相关域名的支持
-- 改进内容替换逻辑
-- 增强错误处理机制
-- 添加性能优化
+返回示例：
 
-## 免责声明
+```json
+{
+  "ok": true,
+  "proxy_url": "https://github-com-gh.<你的域名>/owner/repo"
+}
+```
 
-此代理服务仅用于教育和研究目的。使用者应确保遵守GitHub的服务条款和当地法律法规。
+## 部署说明
+
+如果你部署的是基础版，把 Snippet入口指向 `src/snippet.js`。
+
+如果你部署的是改进版，把 Snippet入口指向 `src/snippet-improved.js`。
+
+示例：
+
+```toml
+name = "gh"
+main = "src/snippet-improved.js"
+compatibility_date = "2024-04-06"
+```
+
+建议配置的路由：
+
+- `home-gh.<你的域名>/*`
+- `*-gh.<你的域名>/*`
+
+## 嵌套路径处理
+
+项目对以下路径做了特殊截断处理：
+
+```text
+/owner/repo/latest-commit/main/https://...
+/owner/repo/tree-commit-info/main/https://...
+```
+
+这样可以减少 GitHub 仓库页面中嵌套链接导致的异常跳转。
+
+## 注意事项
+
+- 项目不保证所有 GitHub 页面都能完全兼容
+- 登录、注册等敏感流程不建议作为重点支持目标
+- 使用前请确认符合当地法律法规和 GitHub 服务条款
+
+## 许可证
+
+见 [LICENSE](./LICENSE)。
