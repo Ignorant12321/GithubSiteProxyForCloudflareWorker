@@ -2,12 +2,9 @@
 // 配置区
 // =========================
 
-// 首页入口域名
-const HOME_HOST = 'home.ssr.ddns-ip.net';
-
-// 代理根域名
-// 例如 github-com-gh.ssr.ddns-ip.net
-const PROXY_BASE_HOST = 'ssr.ddns-ip.net';
+// 首页入口前缀
+// 例如 home-gh.ssr.ddns-ip.net
+const HOME_PREFIX = 'home-gh.';
 
 // 域名白名单配置（仅保留需要的原生域名）
 const domain_whitelist = [
@@ -56,13 +53,16 @@ async function handleRequest(request) {
   const current_host = url.host.toLowerCase();
   const host_header = request.headers.get('Host');
   const effective_host = (host_header || current_host).toLowerCase();
+  const host_prefix = getProxyPrefix(effective_host);
 
   // =========================
   // 首页入口
   // =========================
-  if (effective_host === HOME_HOST) {
+  if (host_prefix === HOME_PREFIX) {
+    const proxy_base_host = effective_host.slice(HOME_PREFIX.length);
+
     if (url.pathname === '/' || url.pathname === '') {
-      return new Response(renderHomePage(), {
+      return new Response(renderHomePage('', proxy_base_host), {
         status: 200,
         headers: {
           'content-type': 'text/html; charset=UTF-8',
@@ -73,9 +73,9 @@ async function handleRequest(request) {
 
     if (url.pathname === '/go') {
       const input = url.searchParams.get('url') || '';
-      const target = buildProxyUrl(input);
+      const target = buildProxyUrl(input, proxy_base_host);
       if (!target) {
-        return new Response(renderHomePage('链接无效，请输入完整的 GitHub / Raw / Gist / GitHub Pages 链接。'), {
+        return new Response(renderHomePage('链接无效，请输入完整的 GitHub / Raw / Gist / GitHub Pages 链接。', proxy_base_host), {
           status: 400,
           headers: {
             'content-type': 'text/html; charset=UTF-8'
@@ -87,7 +87,7 @@ async function handleRequest(request) {
 
     if (url.pathname === '/api/convert') {
       const input = url.searchParams.get('url') || '';
-      const target = buildProxyUrl(input);
+      const target = buildProxyUrl(input, proxy_base_host);
       if (!target) {
         return jsonResponse({ ok: false, error: 'Invalid URL' }, 400);
       }
@@ -107,7 +107,6 @@ async function handleRequest(request) {
   }
 
   // 从有效主机名中提取前缀
-  const host_prefix = getProxyPrefix(effective_host);
   if (!host_prefix) {
     return new Response(
       `Domain not configured for proxy.\nHost: ${effective_host}, Prefix check failed`,
@@ -288,7 +287,7 @@ function resolveTargetHostFromPrefix(host_prefix) {
 }
 
 // 把用户输入的网址转成代理网址
-function buildProxyUrl(input) {
+function buildProxyUrl(input, proxy_base_host) {
   if (!input) return null;
 
   let raw = input.trim();
@@ -310,7 +309,7 @@ function buildProxyUrl(input) {
     const proxy_prefix = host.replace(/\./g, '-') + '-gh.';
     const proxy = new URL(u.href);
     proxy.protocol = 'https:';
-    proxy.host = `${proxy_prefix}${PROXY_BASE_HOST}`;
+    proxy.host = `${proxy_prefix}${proxy_base_host}`;
     return proxy.href;
   } catch (e) {
     return null;
@@ -361,7 +360,7 @@ function modifyUrl(url_str, host_prefix, effective_hostname) {
 }
 
 // 首页 HTML
-function renderHomePage(errorMessage = '') {
+function renderHomePage(errorMessage = '', proxy_base_host = 'ssr.ddns-ip.net') {
   const safeError = escapeHtml(errorMessage || '');
   const safeWhitelist = JSON.stringify(domain_whitelist);
 
@@ -800,7 +799,7 @@ function renderHomePage(errorMessage = '') {
     const whitelistCount = document.getElementById('whitelistCount');
     const toast = document.getElementById('toast');
     const whitelist = ${safeWhitelist};
-    const proxyBaseHost = ${JSON.stringify(PROXY_BASE_HOST)};
+    const proxyBaseHost = ${JSON.stringify(proxy_base_host)};
 
     function normalizeInput(v) {
       return (v || '').trim();
